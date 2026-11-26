@@ -20,3 +20,6 @@ yarn-error.log
 /.idea
 /.vscode
 /.zed
+
+# Local agent specs/tickets (see docs/agents/issue-tracker.md)
+/.scratch
