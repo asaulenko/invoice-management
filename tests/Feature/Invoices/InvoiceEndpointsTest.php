@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Invoices;
 
+use Modules\Notifications\Api\NotificationFacadeInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Ramsey\Uuid\Uuid;
 use Tests\TestCase;
@@ -157,6 +158,78 @@ final class InvoiceEndpointsTest extends TestCase
         yield 'unit price above column range' => [[...$valid, 'unit_price' => 2147483648], 'unit_price'];
     }
 
+    public function test_sends_draft_invoice_to_customer(): void
+    {
+        $notifications = $this->fakeNotifications();
+        $id = $this->postJson('/api/invoices', [
+            'customer_name' => 'Jane Doe',
+            'customer_email' => 'jane@example.com',
+            'product_lines' => [
+                ['product_name' => 'Keyboard', 'quantity' => 2, 'unit_price' => 150],
+            ],
+        ])->json('id');
+
+        $this->postJson("/api/invoices/{$id}/send")
+            ->assertOk()
+            ->assertJson(['id' => $id, 'status' => 'sending', 'total_price' => 300]);
+
+        $this->getJson("/api/invoices/{$id}")->assertJson(['status' => 'sending']);
+        $this->assertCount(1, $notifications->sent);
+        $notification = $notifications->sent[0];
+        $this->assertSame($id, $notification->resourceId->toString());
+        $this->assertSame('jane@example.com', $notification->toEmail);
+        $this->assertSame("Invoice {$id}", $notification->subject);
+        $this->assertStringContainsString('Jane Doe', $notification->message);
+        $this->assertStringContainsString('300', $notification->message);
+    }
+
+    public function test_sending_unknown_invoice_returns_not_found(): void
+    {
+        $notifications = $this->fakeNotifications();
+
+        $this->postJson('/api/invoices/'.Uuid::uuid4()->toString().'/send')
+            ->assertNotFound()
+            ->assertJsonStructure(['message']);
+
+        $this->assertSame([], $notifications->sent);
+    }
+
+    public function test_sending_invoice_without_product_lines_returns_unprocessable(): void
+    {
+        $notifications = $this->fakeNotifications();
+        $id = $this->postJson('/api/invoices', [
+            'customer_name' => 'Jane Doe',
+            'customer_email' => 'jane@example.com',
+        ])->json('id');
+
+        $this->postJson("/api/invoices/{$id}/send")
+            ->assertUnprocessable()
+            ->assertJsonStructure(['message']);
+
+        $this->getJson("/api/invoices/{$id}")->assertJson(['status' => 'draft']);
+        $this->assertSame([], $notifications->sent);
+    }
+
+    public function test_sending_non_draft_invoice_returns_conflict(): void
+    {
+        $notifications = $this->fakeNotifications();
+        $id = $this->postJson('/api/invoices', [
+            'customer_name' => 'Jane Doe',
+            'customer_email' => 'jane@example.com',
+            'product_lines' => [
+                ['product_name' => 'Keyboard', 'quantity' => 1, 'unit_price' => 100],
+            ],
+        ])->json('id');
+        $this->postJson("/api/invoices/{$id}/send")->assertOk();
+
+        $this->postJson("/api/invoices/{$id}/send")
+            ->assertConflict()
+            ->assertJsonStructure(['message']);
+
+        $this->getJson("/api/invoices/{$id}")->assertJson(['status' => 'sending']);
+        $this->assertCount(1, $notifications->sent);
+    }
+
     public function test_creating_with_non_list_product_lines_returns_validation_error(): void
     {
         $this->postJson('/api/invoices', [
@@ -166,5 +239,13 @@ final class InvoiceEndpointsTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['product_lines']);
+    }
+
+    private function fakeNotifications(): FakeNotificationFacade
+    {
+        $fake = new FakeNotificationFacade;
+        $this->app->instance(NotificationFacadeInterface::class, $fake);
+
+        return $fake;
     }
 }

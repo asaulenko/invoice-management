@@ -62,3 +62,24 @@ the same `created_at`, so ordering by timestamp is ambiguous. Instead, line IDs 
 The form request validates each line (`product_name` required, max 255; `quantity` and `unit_price` integers ≥ 1),
 so clients get field-level 422s. As with `Email`, the domain repeats the positive-number rule. HTTP can't reach that
 guard, so it's the one place covered by a unit test (`ProductLineTest`), along with the totals.
+
+## Sending: the invoice guards its own transition
+
+`Invoice::send()` requires `draft` status and at least one product line, then moves to `sending`. The two violations
+are distinct domain exceptions, because they mean different things to a client: a wrong status is a conflict with the
+invoice's current state (409), an empty invoice is a request that can never succeed as it stands (422). The service
+never checks a status itself; it loads, calls `send()`, saves, then notifies. The controller maps the exceptions to
+HTTP codes, so the domain stays unaware of HTTP.
+
+## Notification content
+
+The email goes through the Notifications module's public facade only. The invoice ID doubles as the notification's
+resource ID, which is how the delivery webhook finds its way back to the invoice. The subject is hardcoded as
+"Invoice {id}" and the message names the customer and the total. No templates or localisation: the task allows
+hardcoded content and nothing else needs it.
+
+## Faking Notifications in feature tests
+
+Feature tests swap `NotificationFacadeInterface` in the container for a small recording fake. It's the boundary to
+another module, so replacing it there checks exactly what Invoices hands over (recipient, subject, message, resource
+ID) without depending on the mock provider's behaviour.

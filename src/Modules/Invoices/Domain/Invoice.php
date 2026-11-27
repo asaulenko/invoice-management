@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Modules\Invoices\Domain;
 
 use Modules\Invoices\Domain\Enums\StatusEnum;
+use Modules\Invoices\Domain\Exceptions\InvalidStatusTransitionException;
+use Modules\Invoices\Domain\Exceptions\InvoiceHasNoProductLinesException;
 use Ramsey\Uuid\UuidInterface;
 
 final class Invoice
@@ -46,6 +48,19 @@ final class Invoice
     public function status(): StatusEnum
     {
         return $this->status;
+    }
+
+    public function send(): void
+    {
+        if ($this->status !== StatusEnum::Draft) {
+            throw InvalidStatusTransitionException::cannotSend($this->id, $this->status);
+        }
+
+        if ($this->productLines === []) {
+            throw new InvoiceHasNoProductLinesException($this->id);
+        }
+
+        $this->status = StatusEnum::Sending;
     }
 
     public function totalPrice(): int
