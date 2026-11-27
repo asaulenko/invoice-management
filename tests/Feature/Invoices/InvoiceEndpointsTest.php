@@ -149,10 +149,12 @@ final class InvoiceEndpointsTest extends TestCase
         yield 'zero quantity' => [[...$valid, 'quantity' => 0], 'quantity'];
         yield 'negative quantity' => [[...$valid, 'quantity' => -1], 'quantity'];
         yield 'fractional quantity' => [[...$valid, 'quantity' => 1.5], 'quantity'];
+        yield 'quantity above column range' => [[...$valid, 'quantity' => 2147483648], 'quantity'];
         yield 'missing unit price' => [['product_name' => 'Keyboard', 'quantity' => 1], 'unit_price'];
         yield 'zero unit price' => [[...$valid, 'unit_price' => 0], 'unit_price'];
         yield 'negative unit price' => [[...$valid, 'unit_price' => -100], 'unit_price'];
         yield 'fractional unit price' => [[...$valid, 'unit_price' => 9.99], 'unit_price'];
+        yield 'unit price above column range' => [[...$valid, 'unit_price' => 2147483648], 'unit_price'];
     }
 
     public function test_creating_with_non_list_product_lines_returns_validation_error(): void

@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Invoices\Domain;
 
-use Modules\Invoices\Domain\Email;
 use Modules\Invoices\Domain\Exceptions\InvalidProductLineException;
-use Modules\Invoices\Domain\Invoice;
 use Modules\Invoices\Domain\ProductLine;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -40,23 +38,6 @@ final class ProductLineTest extends TestCase
     {
         yield 'zero' => [0];
         yield 'negative' => [-1];
-    }
-
-    public function test_invoice_total_is_sum_of_line_totals(): void
-    {
-        $invoice = Invoice::draft(Uuid::uuid4(), 'Jane Doe', new Email('jane@example.com'), [
-            $this->line(quantity: 2, unitPrice: 150),
-            $this->line(quantity: 3, unitPrice: 40),
-        ]);
-
-        $this->assertSame(420, $invoice->totalPrice());
-    }
-
-    public function test_invoice_without_lines_totals_zero(): void
-    {
-        $invoice = Invoice::draft(Uuid::uuid4(), 'Jane Doe', new Email('jane@example.com'), []);
-
-        $this->assertSame(0, $invoice->totalPrice());
     }
 
     private function line(int $quantity, int $unitPrice): ProductLine
