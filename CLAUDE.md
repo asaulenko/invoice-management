@@ -24,7 +24,10 @@ Everything runs in the Sail container (`./start.sh` brings it up):
   the implementation living in `Infrastructure` (e.g. a repository). Elsewhere, use concrete classes.
 - `Domain` is plain PHP: no Eloquent, facades or other framework/infrastructure dependencies.
 - Comments explain *why*, never *what*. No docblocks that repeat the signature.
-- Tests go through public seams (HTTP endpoints, module APIs), not internals.
+- Tests go through public seams, never internals: the `Domain` aggregate (unit tests for invariants,
+  transitions and totals) and HTTP endpoints (feature tests for wiring, validation, errors and
+  persistence). No tests for repositories, services or controllers on their own, and no asserting on
+  Eloquent models.
 - Commits: small and self-contained. Don't commit unless I ask.
 - Decisions and trade-offs go in `docs/decisions.md`, one short section per decision. Not ADR files,
   and not in `README.md`.
