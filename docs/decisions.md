@@ -134,6 +134,7 @@ models, so the storage can change without touching the tests.
 - If `notify()` throws after the provider actually sent the email (e.g. a timeout), the invoice is reverted to
   `draft`, and sending it again sends a duplicate email.
 - The production fix would be a queued send with retries after commit, plus a check that finds invoices stuck in
-  `sending`.
+  `sending`. Redis is already in `docker-compose.yml` and could back that queue. I didn't use it here, because a
+  queued send brings its own problems (idempotent retries, failed jobs) that the task doesn't ask for.
 - The row lock works on MySQL and Postgres. SQLite serialises writes but ignores the lock, so the concurrency guard
   isn't covered by a test; faking one would prove nothing.
