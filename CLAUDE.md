@@ -29,8 +29,10 @@ Everything runs in the Sail container (`./start.sh` brings it up):
   persistence). No tests for repositories, services or controllers on their own, and no asserting on
   Eloquent models.
 - Commits: small and self-contained. Don't commit unless I ask.
-- Decisions and trade-offs go in `docs/decisions.md`, one short section per decision. Not ADR files,
-  and not in `README.md`.
+- `docs/decisions.md` holds only the important or non-obvious decisions and trade-offs, especially
+  those touching what `README.md` evaluates (architecture and module boundaries, testing strategy,
+  send/deliver failure handling). Leave out what the code already makes obvious; a decision missing
+  from it is not a defect. One short section per decision. Not ADR files, and not in `README.md`.
 
 ## Agent skills
 
