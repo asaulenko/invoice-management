@@ -71,9 +71,9 @@ invoice's current state (409), an empty invoice is a request that can never succ
 never checks a status itself; it loads, calls `send()`, saves, then notifies. The controller maps the exceptions to
 HTTP codes, so the domain stays unaware of HTTP.
 
-## Notification content
+## Notifications behind an outbound port
 
-The email goes through the Notifications module's public facade only. The invoice ID doubles as the notification's
-resource ID, which is how the delivery webhook finds its way back to the invoice. The subject is hardcoded as
-"Invoice {id}" and the message names the customer and the total. No templates or localisation: the task allows
-hardcoded content and nothing else needs it.
+`InvoiceService` doesn't call the Notifications module itself. It calls `InvoiceNotifier`, an outbound port in Application
+that takes an `Invoice`, and `NotificationsInvoiceNotifier` in Infrastructure implements it by wrapping
+`NotificationFacadeInterface`. Same reasoning as the repository: the use-case layer depends only on contracts it owns,
+and the coupling to another module (including building its `NotifyData`) stays in Infrastructure.

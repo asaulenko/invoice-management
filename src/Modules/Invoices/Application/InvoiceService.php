@@ -7,8 +7,6 @@ namespace Modules\Invoices\Application;
 use Modules\Invoices\Domain\Email;
 use Modules\Invoices\Domain\Invoice;
 use Modules\Invoices\Domain\ProductLine;
-use Modules\Notifications\Api\Data\NotifyData;
-use Modules\Notifications\Api\NotificationFacadeInterface;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 
@@ -16,7 +14,7 @@ final readonly class InvoiceService
 {
     public function __construct(
         private InvoiceRepository $invoices,
-        private NotificationFacadeInterface $notifications,
+        private InvoiceNotifier $notifier,
     ) {}
 
     /** @param list<array{productName: string, quantity: int, unitPrice: int}> $productLines */
@@ -52,13 +50,7 @@ final readonly class InvoiceService
         $invoice = $this->get($id);
         $invoice->send();
         $this->invoices->save($invoice);
-
-        $this->notifications->notify(new NotifyData(
-            resourceId: $invoice->id,
-            toEmail: $invoice->customerEmail->value,
-            subject: "Invoice {$invoice->id->toString()}",
-            message: "Dear {$invoice->customerName}, your invoice totals {$invoice->totalPrice()}.",
-        ));
+        $this->notifier->notify($invoice);
 
         return $invoice;
     }
