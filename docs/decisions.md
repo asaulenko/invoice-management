@@ -11,6 +11,7 @@ registered within the module's provider itself. Notifications knows nothing abou
 `InvoiceRepository` is an interface in Application, implemented by `EloquentInvoiceRepository` in
 Infrastructure. Classical DDD would put it in Domain. I've deliberately put it in Application so the Domain holds only
 business rules and invariants, and the use-case layer owns the persistence contract it needs, as in clean architecture.
+Ports live in `Application/Ports/`, so the folder tree mirrors the adapter folders under Infrastructure.
 
 ## Eloquent stays inside the repository, no mapper class
 

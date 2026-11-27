@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Invoices\Application;
 
+use Modules\Invoices\Application\Ports\InvoiceNotifier;
+use Modules\Invoices\Application\Ports\InvoiceRepository;
 use Modules\Invoices\Domain\Email;
 use Modules\Invoices\Domain\Invoice;
 use Modules\Invoices\Domain\ProductLine;

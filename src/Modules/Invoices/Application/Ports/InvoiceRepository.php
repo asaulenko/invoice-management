@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Modules\Invoices\Application;
+namespace Modules\Invoices\Application\Ports;
 
 use Modules\Invoices\Domain\Invoice;
 use Ramsey\Uuid\UuidInterface;

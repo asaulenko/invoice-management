@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Modules\Invoices\Infrastructure\Persistence;
 
 use Illuminate\Database\ConnectionInterface;
-use Modules\Invoices\Application\InvoiceRepository;
+use Modules\Invoices\Application\Ports\InvoiceRepository;
 use Modules\Invoices\Domain\Email;
 use Modules\Invoices\Domain\Enums\StatusEnum;
 use Modules\Invoices\Domain\Invoice;

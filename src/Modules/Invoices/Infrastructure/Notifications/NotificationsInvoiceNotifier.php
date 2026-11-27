@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Invoices\Infrastructure\Notifications;
 
-use Modules\Invoices\Application\InvoiceNotifier;
+use Modules\Invoices\Application\Ports\InvoiceNotifier;
 use Modules\Invoices\Domain\Invoice;
 use Modules\Notifications\Api\Data\NotifyData;
 use Modules\Notifications\Api\NotificationFacadeInterface;
