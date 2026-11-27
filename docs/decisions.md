@@ -6,6 +6,8 @@ Invoices lives in `src/Modules/Invoices` with Domain, Application (ports, inboun
 and Presentation (controllers, form requests, event listeners) layers. Unlike with the Notifications module, the routes are 
 registered within the module's provider itself. Notifications knows nothing about Invoices.
 
+Notifications module was not changed.
+
 ## Repository port owned by the Application layer (deliberately)
 
 `InvoiceRepository` is an interface in Application, implemented by `EloquentInvoiceRepository` in
