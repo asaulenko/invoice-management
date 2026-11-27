@@ -4,19 +4,24 @@ declare(strict_types=1);
 
 namespace Modules\Invoices\Application;
 
+use Illuminate\Database\ConnectionInterface;
 use Modules\Invoices\Application\Ports\InvoiceNotifier;
 use Modules\Invoices\Application\Ports\InvoiceRepository;
 use Modules\Invoices\Domain\Email;
 use Modules\Invoices\Domain\Invoice;
 use Modules\Invoices\Domain\ProductLine;
+use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
+use Throwable;
 
 final readonly class InvoiceService
 {
     public function __construct(
         private InvoiceRepository $invoices,
         private InvoiceNotifier $notifier,
+        private LoggerInterface $logger,
+        private ConnectionInterface $db,
     ) {}
 
     /** @param list<array{productName: string, quantity: int, unitPrice: int}> $productLines */
@@ -49,10 +54,23 @@ final readonly class InvoiceService
 
     public function send(UuidInterface $id): Invoice
     {
-        $invoice = $this->get($id);
-        $invoice->send();
-        $this->invoices->save($invoice);
-        $this->notifier->notify($invoice);
+        // Concurrent sends queue on the row lock, so the second one sees `sending` and is rejected.
+        // Committing before notifying means a delivery webhook always finds `sending` persisted.
+        $invoice = $this->db->transaction(function () use ($id): Invoice {
+            $invoice = $this->invoices->findForUpdate($id) ?? throw new InvoiceNotFoundException($id);
+            $invoice->send();
+            $this->invoices->save($invoice);
+
+            return $invoice;
+        });
+
+        try {
+            $this->notifier->notify($invoice);
+        } catch (Throwable $e) {
+            $this->revertToDraft($invoice);
+
+            throw new NotificationFailedException($id, $e);
+        }
 
         return $invoice;
     }
@@ -62,5 +80,19 @@ final readonly class InvoiceService
         $invoice = $this->get($id);
         $invoice->markSentToClient();
         $this->invoices->save($invoice);
+    }
+
+    private function revertToDraft(Invoice $invoice): void
+    {
+        try {
+            $invoice->revertToDraft();
+            $this->invoices->save($invoice);
+        } catch (Throwable $e) {
+            // Nothing else can be done here; the invoice stays in sending until someone intervenes.
+            $this->logger->error('Failed to revert invoice to draft after notification failure.', [
+                'invoice_id' => $invoice->id->toString(),
+                'exception' => $e,
+            ]);
+        }
     }
 }

@@ -26,6 +26,13 @@ final readonly class EloquentInvoiceRepository implements InvoiceRepository
         return $model === null ? null : $this->toDomain($model);
     }
 
+    public function findForUpdate(UuidInterface $id): ?Invoice
+    {
+        $model = InvoiceModel::query()->with('productLines')->lockForUpdate()->find($id->toString());
+
+        return $model === null ? null : $this->toDomain($model);
+    }
+
     public function save(Invoice $invoice): void
     {
         $this->db->transaction(function () use ($invoice): void {

@@ -105,6 +105,32 @@ final class InvoiceTest extends TestCase
         yield 'sent to client' => [StatusEnum::SentToClient];
     }
 
+    public function test_sending_invoice_can_be_reverted_to_draft(): void
+    {
+        $invoice = $this->draft([$this->line(quantity: 1, unitPrice: 100)]);
+        $invoice->send();
+
+        $invoice->revertToDraft();
+
+        $this->assertSame(StatusEnum::Draft, $invoice->status());
+    }
+
+    #[DataProvider('nonSendingStatuses')]
+    public function test_non_sending_invoice_cannot_be_reverted_to_draft(StatusEnum $status): void
+    {
+        $invoice = Invoice::reconstitute(
+            Uuid::uuid4(),
+            $status,
+            'Jane Doe',
+            new Email('jane@example.com'),
+            [$this->line(quantity: 1, unitPrice: 100)],
+        );
+
+        $this->expectException(InvalidStatusTransitionException::class);
+
+        $invoice->revertToDraft();
+    }
+
     /** @param list<ProductLine> $lines */
     private function draft(array $lines): Invoice
     {

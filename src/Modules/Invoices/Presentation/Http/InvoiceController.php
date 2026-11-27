@@ -7,6 +7,7 @@ namespace Modules\Invoices\Presentation\Http;
 use Illuminate\Http\JsonResponse;
 use Modules\Invoices\Application\InvoiceNotFoundException;
 use Modules\Invoices\Application\InvoiceService;
+use Modules\Invoices\Application\NotificationFailedException;
 use Modules\Invoices\Domain\Exceptions\InvalidStatusTransitionException;
 use Modules\Invoices\Domain\Exceptions\InvoiceHasNoProductLinesException;
 use Modules\Invoices\Domain\Invoice;
@@ -15,6 +16,7 @@ use Ramsey\Uuid\Uuid;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 final readonly class InvoiceController
@@ -55,6 +57,8 @@ final readonly class InvoiceController
             throw new ConflictHttpException($e->getMessage(), $e);
         } catch (InvoiceHasNoProductLinesException $e) {
             throw new UnprocessableEntityHttpException($e->getMessage(), $e);
+        } catch (NotificationFailedException $e) {
+            throw new ServiceUnavailableHttpException(message: $e->getMessage(), previous: $e);
         }
 
         return new JsonResponse($this->present($invoice));

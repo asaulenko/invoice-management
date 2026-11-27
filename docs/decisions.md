@@ -78,3 +78,40 @@ HTTP codes, so the domain stays unaware of HTTP.
 that takes an `Invoice`, and `NotificationsInvoiceNotifier` in Infrastructure implements it by wrapping
 `NotificationFacadeInterface`. Same reasoning as the repository: the use-case layer depends only on contracts it owns,
 and the coupling to another module (including building its `NotifyData`) stays in Infrastructure.
+
+## Send order: lock, commit, then notify
+
+`InvoiceService::send()` loads the invoice with `findForUpdate()` (`lockForUpdate`) inside a transaction, calls
+`send()`, saves and commits, and only then notifies. Two concurrent sends queue on the row lock, so the second one sees
+`sending` and gets a 409, and only one email goes out. Because `sending` is committed before the provider is called,
+a delivery webhook can never arrive for an invoice that still looks like a draft. The service holds the transaction
+(through Laravel's `ConnectionInterface`) instead of a dedicated transaction port, since that would be an abstraction
+with a single obvious implementation.
+
+## Notification failure: revert to draft and 503
+
+If `notify()` throws, `Invoice::revertToDraft()` (allowed only from `sending`) moves the invoice back to `draft`, it is
+saved, and the API returns 503, so the client can safely retry. If the revert itself fails, the error is logged and the
+invoice stays in `sending` (see the limitations below).
+
+## Delivery webhook edge cases
+
+Because the listener runs inside the provider's webhook request, a thrown exception would become a 500 and trigger retries.
+Some cases cannot be fixed with a retry, so instead of throwing the listener does the following:
+- unknown invoice ID: a warning is logged (Notifications is shared, so the ID may belong to another resource);
+- invoice already `sent-to-client`: a duplicate webhook, ignored silently;
+- invoice still `draft`: a warning is logged, since the send order should make this impossible.
+
+To tell the last two apart without the listener checking the status itself, `InvalidStatusTransitionException`
+carries the status that rejected the transition. Unexpected errors (e.g. the database being down) are deliberately
+not caught: a 500 makes the provider retry, which is exactly what we want for a delivery we failed to record.
+
+## Known limitations
+
+- If notifying fails and the revert also fails (e.g. the database is down), the invoice is stuck in `sending`.
+- If `notify()` throws after the provider actually sent the email (e.g. a timeout), the invoice is reverted to
+  `draft`, and sending it again sends a duplicate email.
+- The production fix would be a queued send with retries after commit, plus a check that finds invoices stuck in
+  `sending`.
+- The row lock works on MySQL and Postgres. SQLite serialises writes but ignores the lock, so the concurrency guard
+  isn't covered by a test; faking one would prove nothing.

@@ -72,6 +72,15 @@ final class Invoice
         $this->status = StatusEnum::SentToClient;
     }
 
+    public function revertToDraft(): void
+    {
+        if ($this->status !== StatusEnum::Sending) {
+            throw InvalidStatusTransitionException::cannotRevertToDraft($this->id, $this->status);
+        }
+
+        $this->status = StatusEnum::Draft;
+    }
+
     public function totalPrice(): int
     {
         return array_sum(array_map(

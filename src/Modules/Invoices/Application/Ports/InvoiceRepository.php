@@ -11,5 +11,11 @@ interface InvoiceRepository
 {
     public function find(UuidInterface $id): ?Invoice;
 
+    /**
+     * Must be called inside a transaction.
+     * The lock is held until it commits or rolls back.
+     */
+    public function findForUpdate(UuidInterface $id): ?Invoice;
+
     public function save(Invoice $invoice): void;
 }
