@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Modules\Invoices\Application\InvoiceNotFoundException;
 use Modules\Invoices\Application\InvoiceService;
 use Modules\Invoices\Domain\Invoice;
+use Modules\Invoices\Domain\ProductLine;
 use Ramsey\Uuid\Uuid;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -23,6 +24,7 @@ final readonly class InvoiceController
         $invoice = $this->invoiceService->create(
             customerName: $request->string('customer_name')->toString(),
             customerEmail: $request->string('customer_email')->toString(),
+            productLines: $request->productLines(),
         );
 
         return new JsonResponse($this->present($invoice), Response::HTTP_CREATED);
@@ -47,9 +49,16 @@ final readonly class InvoiceController
             'status' => $invoice->status()->value,
             'customer_name' => $invoice->customerName,
             'customer_email' => $invoice->customerEmail->value,
-            // Product lines arrive in S2; the shape is fixed from the start so clients never see it change.
-            'product_lines' => [],
-            'total_price' => 0,
+            'product_lines' => array_map(
+                static fn (ProductLine $line): array => [
+                    'product_name' => $line->productName,
+                    'quantity' => $line->quantity,
+                    'unit_price' => $line->unitPrice,
+                    'total_unit_price' => $line->totalUnitPrice(),
+                ],
+                $invoice->productLines,
+            ),
+            'total_price' => $invoice->totalPrice(),
         ];
     }
 }

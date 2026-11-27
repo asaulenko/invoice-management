@@ -33,3 +33,32 @@ same `filter` check), so bad input gets a 422, while `Email` guards the invarian
 `InvoiceService` holds all of the use cases (create and get for now, send and delivery later) and serves as the application's entry point.
 There are only a few short operations, so separating them into different classes would be overkill. I also decided to go with
 one `InvoiceController` class instead of several action-based controllers for simplicity.
+
+## Product lines live inside the aggregate
+
+`ProductLine` is an entity inside `Invoice` with its own UUID. Its constructor rejects a quantity or unit price below 1, 
+so an invalid line can't exist even if it never went through HTTP. Lines come only
+with the invoice: the repository saves an invoice by replacing all of its lines in one transaction, so it never has
+to work out which lines changed.
+
+**IMPORTANT!** The requirements state that invoice lines can have only positive values for   
+quantity and unit price. Later, it is said that to be sent, an invoice must contain product lines with both quantity   
+and unit price as positive integers greater than zero. IMO, it is a tiny redundancy in the requirements. This invariant is maintained   
+at invoice creation (well, at least in my implementation).
+
+## Totals are computed, never stored
+
+`ProductLine::totalUnitPrice()` and `Invoice::totalPrice()` are derived on read. Storing them would mean two sources
+of truth for the same number. An invoice without lines totals 0.
+
+## Line order comes from UUIDv7 IDs
+
+Lines are returned in the order they were created. The schema has no position column, and lines saved together share
+the same `created_at`, so ordering by timestamp is ambiguous. Instead, line IDs are UUIDv7, which are time-ordered
+(and monotonic within a millisecond in ramsey/uuid), and lines are loaded ordered by `id`. This needs no schema change.
+
+## Line validation in the request and the domain
+
+The form request validates each line (`product_name` required, max 255; `quantity` and `unit_price` integers ≥ 1),
+so clients get field-level 422s. As with `Email`, the domain repeats the positive-number rule. HTTP can't reach that
+guard, so it's the one place covered by a unit test (`ProductLineTest`), along with the totals.

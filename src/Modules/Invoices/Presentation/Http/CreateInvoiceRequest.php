@@ -14,6 +14,23 @@ final class CreateInvoiceRequest extends FormRequest
         return [
             'customer_name' => ['required', 'string', 'max:255'],
             'customer_email' => ['required', 'email:filter', 'max:255'],
+            'product_lines' => ['sometimes', 'array', 'list'],
+            'product_lines.*.product_name' => ['required', 'string', 'max:255'],
+            'product_lines.*.quantity' => ['required', 'integer', 'min:1'],
+            'product_lines.*.unit_price' => ['required', 'integer', 'min:1'],
         ];
+    }
+
+    /** @return list<array{productName: string, quantity: int, unitPrice: int}> */
+    public function productLines(): array
+    {
+        return array_map(
+            static fn (array $line): array => [
+                'productName' => (string) $line['product_name'],
+                'quantity' => (int) $line['quantity'],
+                'unitPrice' => (int) $line['unit_price'],
+            ],
+            $this->validated('product_lines', []),
+        );
     }
 }
