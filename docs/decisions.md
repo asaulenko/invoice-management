@@ -62,7 +62,7 @@ the same `created_at`, so ordering by timestamp is ambiguous. Instead, line IDs 
 
 The form request validates each line (`product_name` required, max 255; `quantity` and `unit_price` integers ≥ 1),
 so clients get field-level 422s. As with `Email`, the domain repeats the positive-number rule. HTTP can't reach that
-guard, so it's the one place covered by a unit test (`ProductLineTest`), along with the totals.
+guard, so only `ProductLineTest` covers it.
 
 ## Sending: the invoice guards its own transition
 
@@ -105,6 +105,28 @@ Some cases cannot be fixed with a retry, so instead of throwing the listener doe
 To tell the last two apart without the listener checking the status itself, `InvalidStatusTransitionException`
 carries the status that rejected the transition. Unexpected errors (e.g. the database being down) are deliberately
 not caught: a 500 makes the provider retry, which is exactly what we want for a delivery we failed to record.
+
+## Testing strategy: the aggregate and the HTTP API
+
+Tests use only two public seams, so they check behaviour and survive refactoring:
+- **Domain unit tests** (`InvoiceTest`, `ProductLineTest`) verify the core business rules
+  directly at the domain level. They cover all valid and invalid status transitions
+  (using data providers), ensure that an invoice cannot be sent without product lines,
+  validate positive amounts, and verify total calculations. These are plain PHPUnit
+  tests that run without booting the framework.
+- **HTTP feature tests** (`InvoiceEndpointsTest`) verify that the application components
+  work correctly together. They cover request validation, mapping errors to the
+  appropriate HTTP status codes (404/409/422/503), data persistence, preservation
+  of product line order when creating and viewing invoices, and the invoice sending
+  and delivery workflow. Delivery is tested through the actual Notifications webhook
+  endpoint, ensuring that the entire flow, from event dispatching to updating the
+  invoice status, works correctly across module boundaries. 
+
+The database is real (SQLite, refreshed per test), and the only double is `FakeNotificationFacade` at the Notifications
+module's public API. It records what would be sent and can be made to fail, which is how the revert-to-draft + 503 path
+is tested. The service, repository, controller and listener have no tests of their own: the feature tests already
+cover them, and isolated tests would mostly assert on mocks. Assertions go through API responses, never Eloquent
+models, so the storage can change without touching the tests.
 
 ## Known limitations
 
