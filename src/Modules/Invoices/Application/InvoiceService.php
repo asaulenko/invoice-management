@@ -62,4 +62,11 @@ final readonly class InvoiceService
 
         return $invoice;
     }
+
+    public function markSentToClient(UuidInterface $id): void
+    {
+        $invoice = $this->get($id);
+        $invoice->markSentToClient();
+        $this->invoices->save($invoice);
+    }
 }

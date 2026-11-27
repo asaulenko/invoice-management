@@ -72,6 +72,39 @@ final class InvoiceTest extends TestCase
         yield 'sent to client' => [StatusEnum::SentToClient];
     }
 
+    public function test_sending_invoice_can_be_marked_sent_to_client(): void
+    {
+        $invoice = $this->draft([$this->line(quantity: 1, unitPrice: 100)]);
+        $invoice->send();
+
+        $invoice->markSentToClient();
+
+        $this->assertSame(StatusEnum::SentToClient, $invoice->status());
+    }
+
+    #[DataProvider('nonSendingStatuses')]
+    public function test_non_sending_invoice_cannot_be_marked_sent_to_client(StatusEnum $status): void
+    {
+        $invoice = Invoice::reconstitute(
+            Uuid::uuid4(),
+            $status,
+            'Jane Doe',
+            new Email('jane@example.com'),
+            [$this->line(quantity: 1, unitPrice: 100)],
+        );
+
+        $this->expectException(InvalidStatusTransitionException::class);
+
+        $invoice->markSentToClient();
+    }
+
+    /** @return iterable<string, array{StatusEnum}> */
+    public static function nonSendingStatuses(): iterable
+    {
+        yield 'draft' => [StatusEnum::Draft];
+        yield 'sent to client' => [StatusEnum::SentToClient];
+    }
+
     /** @param list<ProductLine> $lines */
     private function draft(array $lines): Invoice
     {

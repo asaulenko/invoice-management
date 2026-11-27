@@ -2,9 +2,9 @@
 
 ## Invoices module
 
-Invoices lives in `src/Modules/Invoices` with Domain, Application, Infrastructure and Presentation
-layers. Unlike with the Notifications module, the routes are registered within the module's provider itself. 
-Notifications knows nothing about Invoices.
+Invoices lives in `src/Modules/Invoices` with Domain, Application (ports, inbound, use cases), Infrastructure (outbound adapters) 
+and Presentation (controllers, form requests, event listeners) layers. Unlike with the Notifications module, the routes are 
+registered within the module's provider itself. Notifications knows nothing about Invoices.
 
 ## Repository port owned by the Application layer (deliberately)
 
@@ -77,9 +77,3 @@ The email goes through the Notifications module's public facade only. The invoic
 resource ID, which is how the delivery webhook finds its way back to the invoice. The subject is hardcoded as
 "Invoice {id}" and the message names the customer and the total. No templates or localisation: the task allows
 hardcoded content and nothing else needs it.
-
-## Faking Notifications in feature tests
-
-Feature tests swap `NotificationFacadeInterface` in the container for a small recording fake. It's the boundary to
-another module, so replacing it there checks exactly what Invoices hands over (recipient, subject, message, resource
-ID) without depending on the mock provider's behaviour.

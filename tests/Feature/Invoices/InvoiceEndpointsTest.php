@@ -230,6 +230,24 @@ final class InvoiceEndpointsTest extends TestCase
         $this->assertCount(1, $notifications->sent);
     }
 
+    public function test_delivered_webhook_marks_sending_invoice_sent_to_client(): void
+    {
+        $this->fakeNotifications();
+        $id = $this->postJson('/api/invoices', [
+            'customer_name' => 'Jane Doe',
+            'customer_email' => 'jane@example.com',
+            'product_lines' => [
+                ['product_name' => 'Keyboard', 'quantity' => 1, 'unit_price' => 100],
+            ],
+        ])->json('id');
+        $this->postJson("/api/invoices/{$id}/send")->assertOk();
+
+        $this->getJson(route('notification.hook', ['action' => 'delivered', 'reference' => $id]))
+            ->assertNoContent();
+
+        $this->getJson("/api/invoices/{$id}")->assertJson(['status' => 'sent-to-client']);
+    }
+
     public function test_creating_with_non_list_product_lines_returns_validation_error(): void
     {
         $this->postJson('/api/invoices', [

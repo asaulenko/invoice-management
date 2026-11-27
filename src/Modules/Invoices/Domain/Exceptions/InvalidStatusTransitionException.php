@@ -14,4 +14,9 @@ final class InvalidStatusTransitionException extends DomainException
     {
         return new self("Invoice {$id->toString()} is {$current->value}; only a draft can be sent.");
     }
+
+    public static function cannotMarkSentToClient(UuidInterface $id, StatusEnum $current): self
+    {
+        return new self("Invoice {$id->toString()} is {$current->value}; only a sending invoice can be marked sent to client.");
+    }
 }
