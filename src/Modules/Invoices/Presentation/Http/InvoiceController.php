@@ -10,6 +10,7 @@ use Modules\Invoices\Application\InvoiceService;
 use Modules\Invoices\Application\NotificationFailedException;
 use Modules\Invoices\Domain\Exceptions\InvalidStatusTransitionException;
 use Modules\Invoices\Domain\Exceptions\InvoiceHasNoProductLinesException;
+use Modules\Invoices\Domain\Exceptions\InvoiceTotalTooLargeException;
 use Modules\Invoices\Domain\Invoice;
 use Modules\Invoices\Domain\ProductLine;
 use Ramsey\Uuid\Uuid;
@@ -27,11 +28,15 @@ final readonly class InvoiceController
 
     public function create(CreateInvoiceRequest $request): JsonResponse
     {
-        $invoice = $this->invoiceService->create(
-            customerName: $request->string('customer_name')->toString(),
-            customerEmail: $request->string('customer_email')->toString(),
-            productLines: $request->productLines(),
-        );
+        try {
+            $invoice = $this->invoiceService->create(
+                customerName: $request->string('customer_name')->toString(),
+                customerEmail: $request->string('customer_email')->toString(),
+                productLines: $request->productLines(),
+            );
+        } catch (InvoiceTotalTooLargeException $e) {
+            throw new UnprocessableEntityHttpException($e->getMessage(), $e);
+        }
 
         return new JsonResponse($this->present($invoice), Response::HTTP_CREATED);
     }

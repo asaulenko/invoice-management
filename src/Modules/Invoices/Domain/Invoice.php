@@ -7,6 +7,7 @@ namespace Modules\Invoices\Domain;
 use Modules\Invoices\Domain\Enums\StatusEnum;
 use Modules\Invoices\Domain\Exceptions\InvalidStatusTransitionException;
 use Modules\Invoices\Domain\Exceptions\InvoiceHasNoProductLinesException;
+use Modules\Invoices\Domain\Exceptions\InvoiceTotalTooLargeException;
 use Ramsey\Uuid\UuidInterface;
 
 final class Invoice
@@ -18,7 +19,10 @@ final class Invoice
         public readonly string $customerName,
         public readonly Email $customerEmail,
         public readonly array $productLines,
-    ) {}
+    ) {
+        // Reject unrepresentable totals before an invoice can be persisted.
+        $this->totalPrice();
+    }
 
     /** @param list<ProductLine> $productLines */
     public static function draft(
@@ -83,9 +87,17 @@ final class Invoice
 
     public function totalPrice(): int
     {
-        return array_sum(array_map(
-            static fn (ProductLine $line): int => $line->totalUnitPrice(),
-            $this->productLines,
-        ));
+        $total = 0;
+
+        foreach ($this->productLines as $line) {
+            $lineTotal = $line->totalUnitPrice();
+            if ($lineTotal > PHP_INT_MAX - $total) {
+                throw new InvoiceTotalTooLargeException;
+            }
+
+            $total += $lineTotal;
+        }
+
+        return $total;
     }
 }

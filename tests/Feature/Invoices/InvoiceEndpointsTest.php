@@ -68,6 +68,35 @@ final class InvoiceEndpointsTest extends TestCase
             ]);
     }
 
+    public function test_creating_invoice_with_overflowing_total_returns_validation_error(): void
+    {
+        $this->postJson('/api/invoices', [
+            'customer_name' => 'Jane Doe',
+            'customer_email' => 'jane@example.com',
+            'product_lines' => array_fill(0, 3, [
+                'product_name' => 'Keyboard',
+                'quantity' => 2147483647,
+                'unit_price' => 2147483647,
+            ]),
+        ])->assertUnprocessable()->assertJsonStructure(['message']);
+    }
+
+    public function test_creates_and_views_invoice_with_large_representable_total(): void
+    {
+        $response = $this->postJson('/api/invoices', [
+            'customer_name' => 'Jane Doe',
+            'customer_email' => 'jane@example.com',
+            'product_lines' => array_fill(0, 2, [
+                'product_name' => 'Keyboard',
+                'quantity' => 2147483647,
+                'unit_price' => 2147483647,
+            ]),
+        ])->assertCreated()->assertJsonPath('total_price', 9223372028264841218);
+
+        $this->getJson('/api/invoices/'.$response->json('id'))
+            ->assertOk()->assertJsonPath('total_price', 9223372028264841218);
+    }
+
     public function test_views_product_lines_in_creation_order(): void
     {
         $names = ['Mouse', 'Keyboard', 'Webcam', 'Cable', 'Monitor'];
@@ -150,11 +179,17 @@ final class InvoiceEndpointsTest extends TestCase
         yield 'zero quantity' => [[...$valid, 'quantity' => 0], 'quantity'];
         yield 'negative quantity' => [[...$valid, 'quantity' => -1], 'quantity'];
         yield 'fractional quantity' => [[...$valid, 'quantity' => 1.5], 'quantity'];
+        yield 'boolean true quantity' => [[...$valid, 'quantity' => true], 'quantity'];
+        yield 'boolean false quantity' => [[...$valid, 'quantity' => false], 'quantity'];
+        yield 'numeric string quantity' => [[...$valid, 'quantity' => '1'], 'quantity'];
         yield 'quantity above column range' => [[...$valid, 'quantity' => 2147483648], 'quantity'];
         yield 'missing unit price' => [['product_name' => 'Keyboard', 'quantity' => 1], 'unit_price'];
         yield 'zero unit price' => [[...$valid, 'unit_price' => 0], 'unit_price'];
         yield 'negative unit price' => [[...$valid, 'unit_price' => -100], 'unit_price'];
         yield 'fractional unit price' => [[...$valid, 'unit_price' => 9.99], 'unit_price'];
+        yield 'boolean true unit price' => [[...$valid, 'unit_price' => true], 'unit_price'];
+        yield 'boolean false unit price' => [[...$valid, 'unit_price' => false], 'unit_price'];
+        yield 'numeric string unit price' => [[...$valid, 'unit_price' => '100'], 'unit_price'];
         yield 'unit price above column range' => [[...$valid, 'unit_price' => 2147483648], 'unit_price'];
     }
 
@@ -213,13 +248,7 @@ final class InvoiceEndpointsTest extends TestCase
     public function test_sending_non_draft_invoice_returns_conflict(): void
     {
         $notifications = $this->fakeNotifications();
-        $id = $this->postJson('/api/invoices', [
-            'customer_name' => 'Jane Doe',
-            'customer_email' => 'jane@example.com',
-            'product_lines' => [
-                ['product_name' => 'Keyboard', 'quantity' => 1, 'unit_price' => 100],
-            ],
-        ])->json('id');
+        $id = $this->createSendableInvoice();
         $this->postJson("/api/invoices/{$id}/send")->assertOk();
 
         $this->postJson("/api/invoices/{$id}/send")
@@ -246,13 +275,7 @@ final class InvoiceEndpointsTest extends TestCase
     public function test_delivered_webhook_marks_sending_invoice_sent_to_client(): void
     {
         $this->fakeNotifications();
-        $id = $this->postJson('/api/invoices', [
-            'customer_name' => 'Jane Doe',
-            'customer_email' => 'jane@example.com',
-            'product_lines' => [
-                ['product_name' => 'Keyboard', 'quantity' => 1, 'unit_price' => 100],
-            ],
-        ])->json('id');
+        $id = $this->createSendableInvoice();
         $this->postJson("/api/invoices/{$id}/send")->assertOk();
 
         $this->getJson(route('notification.hook', ['action' => 'delivered', 'reference' => $id]))

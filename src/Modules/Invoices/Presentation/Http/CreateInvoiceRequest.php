@@ -16,8 +16,8 @@ final class CreateInvoiceRequest extends FormRequest
             'customer_email' => ['required', 'email:filter', 'max:255'],
             'product_lines' => ['sometimes', 'array', 'list'],
             'product_lines.*.product_name' => ['required', 'string', 'max:255'],
-            'product_lines.*.quantity' => ['required', 'integer', 'min:1', 'max:2147483647'],
-            'product_lines.*.unit_price' => ['required', 'integer', 'min:1', 'max:2147483647'],
+            'product_lines.*.quantity' => ['required', 'integer:strict', 'min:1', 'max:2147483647'],
+            'product_lines.*.unit_price' => ['required', 'integer:strict', 'min:1', 'max:2147483647'],
         ];
     }
 

@@ -8,6 +8,7 @@ use Modules\Invoices\Domain\Email;
 use Modules\Invoices\Domain\Enums\StatusEnum;
 use Modules\Invoices\Domain\Exceptions\InvalidStatusTransitionException;
 use Modules\Invoices\Domain\Exceptions\InvoiceHasNoProductLinesException;
+use Modules\Invoices\Domain\Exceptions\InvoiceTotalTooLargeException;
 use Modules\Invoices\Domain\Invoice;
 use Modules\Invoices\Domain\ProductLine;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -29,6 +30,26 @@ final class InvoiceTest extends TestCase
     public function test_invoice_without_lines_totals_zero(): void
     {
         $this->assertSame(0, $this->draft([])->totalPrice());
+    }
+
+    public function test_total_can_equal_the_largest_integer(): void
+    {
+        $invoice = $this->draft([
+            $this->line(quantity: 1, unitPrice: PHP_INT_MAX - 1),
+            $this->line(quantity: 1, unitPrice: 1),
+        ]);
+
+        $this->assertSame(PHP_INT_MAX, $invoice->totalPrice());
+    }
+
+    public function test_rejects_invoice_whose_total_exceeds_the_integer_range(): void
+    {
+        $this->expectException(InvoiceTotalTooLargeException::class);
+
+        $this->draft([
+            $this->line(quantity: 1, unitPrice: PHP_INT_MAX),
+            $this->line(quantity: 1, unitPrice: 1),
+        ]);
     }
 
     public function test_sending_draft_with_lines_moves_it_to_sending(): void
