@@ -9,17 +9,24 @@ Notifications knows nothing about Invoices.
 ## Repository port owned by the Application layer (deliberately)
 
 `InvoiceRepository` is an interface in Application, implemented by `EloquentInvoiceRepository` in
-Infrastructure. Classical DDD would put the repository in Domain. Instead, I've deliberately decided to put it in Application to keep the
-Domain limited to business rules and invariants only and let the use-case layer own the persistence contract it needs. It aligns with the clean architecture pattern. Eloquent models are used only inside the repository, which also does all model-to-domain mapping in private
-methods. I decided not to introduce a dedicated mapper class to not overcomplicate the design.
+Infrastructure. Classical DDD would put it in Domain. I've deliberately put it in Application so the Domain holds only
+business rules and invariants, and the use-case layer owns the persistence contract it needs, as in clean architecture.
+
+## Eloquent stays inside the repository, no mapper class
+
+Eloquent models are used only inside `EloquentInvoiceRepository`, which also maps between models and the domain
+(`toDomain()` for reads, inline in `save()` for writes). A dedicated mapper class would overcomplicate the design.
 
 ## Plain-PHP domain
 
-`Invoice` is the aggregate root and contains no framework code. I am a big fan of the idea of keeping the domain logic
-completely separate from the framework/infrastructure. `Invoice::draft()` is the only way to
-create a new invoice, so every new invoice starts as `draft`. `Invoice::reconstitute()` rebuilds a
-stored invoice and is meant only for the repository. The only value object I decided to introduce (to keep the design
-as simple as possible) is `Email`. The email address value is also validated by form request.
+`Invoice` is the aggregate root and contains no framework code: I want the domain logic completely separate from the
+framework and infrastructure. `Invoice::draft()` is the only way to create a new invoice, so every new invoice starts
+as `draft`. `Invoice::reconstitute()` rebuilds a stored invoice and is meant only for the repository.
+
+## `Email` is the only value object
+
+To keep the design simple, `Email` is the only value object. The form request validates the address too (with the
+same `filter` check), so bad input gets a 422, while `Email` guards the invariant inside the domain.
 
 ## One application service
 
