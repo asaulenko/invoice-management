@@ -72,6 +72,7 @@ final class InvoiceEndpointsTest extends TestCase
         yield 'name too long' => [[...$valid, 'customer_name' => str_repeat('a', 256)], 'customer_name'];
         yield 'missing email' => [['customer_name' => 'Jane Doe'], 'customer_email'];
         yield 'invalid email' => [[...$valid, 'customer_email' => 'not-an-email'], 'customer_email'];
+        yield 'email without domain dot' => [[...$valid, 'customer_email' => 'jane@localhost'], 'customer_email'];
         yield 'email too long' => [[...$valid, 'customer_email' => str_repeat('a', 244).'@example.com'], 'customer_email'];
     }
 }

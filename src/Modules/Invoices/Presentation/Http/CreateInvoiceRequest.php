@@ -13,7 +13,7 @@ final class CreateInvoiceRequest extends FormRequest
     {
         return [
             'customer_name' => ['required', 'string', 'max:255'],
-            'customer_email' => ['required', 'email', 'max:255'],
+            'customer_email' => ['required', 'email:filter', 'max:255'],
         ];
     }
 }
