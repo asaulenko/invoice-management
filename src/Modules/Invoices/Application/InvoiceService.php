@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Modules\Invoices\Application;
 
 use Illuminate\Database\ConnectionInterface;
+use Modules\Invoices\Application\Exceptions\InvoiceNotFoundException;
+use Modules\Invoices\Application\Exceptions\NotificationFailedException;
 use Modules\Invoices\Application\Ports\InvoiceNotifier;
 use Modules\Invoices\Application\Ports\InvoiceRepository;
 use Modules\Invoices\Domain\Email;

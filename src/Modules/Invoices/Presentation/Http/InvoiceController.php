@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Modules\Invoices\Presentation\Http;
 
 use Illuminate\Http\JsonResponse;
-use Modules\Invoices\Application\InvoiceNotFoundException;
+use Modules\Invoices\Application\Exceptions\InvoiceNotFoundException;
+use Modules\Invoices\Application\Exceptions\NotificationFailedException;
 use Modules\Invoices\Application\InvoiceService;
-use Modules\Invoices\Application\NotificationFailedException;
 use Modules\Invoices\Domain\Exceptions\InvalidStatusTransitionException;
 use Modules\Invoices\Domain\Exceptions\InvoiceHasNoProductLinesException;
 use Modules\Invoices\Domain\Exceptions\InvoiceTotalTooLargeException;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Invoices\Presentation\Listeners;
 
-use Modules\Invoices\Application\InvoiceNotFoundException;
+use Modules\Invoices\Application\Exceptions\InvoiceNotFoundException;
 use Modules\Invoices\Application\InvoiceService;
 use Modules\Invoices\Domain\Enums\StatusEnum;
 use Modules\Invoices\Domain\Exceptions\InvalidStatusTransitionException;
