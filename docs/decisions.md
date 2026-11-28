@@ -33,7 +33,7 @@ same `filter` check), so bad input gets a 422, while `Email` guards the invarian
 
 ## One application service
 
-`InvoiceService` holds all of the use cases (create and get for now, send and delivery later) and serves as the application's entry point.
+`InvoiceService` holds all of the use cases and serves as the application's entry point.
 There are only a few short operations, so separating them into different classes would be overkill. I also decided to go with
 one `InvoiceController` class instead of several action-based controllers for simplicity.
 
