@@ -1,66 +1,111 @@
-## Invoice Structure:
+# Invoice API
 
-The invoice should contain the following fields:
-* **Invoice ID**: Auto-generated during creation.
-* **Invoice Status**: Possible states include `draft,` `sending,` and `sent-to-client`.
-* **Customer Name** 
-* **Customer Email** 
-* **Invoice Product Lines**, each with:
-  * **Product Name**
-  * **Quantity**: Integer, must be positive. 
-  * **Unit Price**: Integer, must be positive.
-  * **Total Unit Price**: Calculated as Quantity x Unit Price. 
-* **Total Price**: Sum of all Total Unit Prices.
+A Laravel 13 / PHP 8.5 API for creating invoices and tracking notification delivery.
 
-## Required Endpoints:
+The main architectural decisions and trade-offs can be found [here](docs/decisions.md).
 
-1. **View Invoice**: Retrieve invoice data in the format above.
-2. **Create Invoice**: Initialize a new invoice.
-3. **Send Invoice**: Handle the sending of an invoice.
+## Setup
 
-## Functional Requirements:
+Requirements: Docker with Docker Compose, PHP 8.5 and Composer.
 
-### Invoice Criteria:
+```bash
+composer install
+./start.sh
+```
 
-* An invoice can only be created in `draft` status. 
-* An invoice can be created with empty product lines. 
-* An invoice can only be sent if it is in `draft` status. 
-* An invoice can only be marked as `sent-to-client` if its current status is `sending`. 
-* To be sent, an invoice must contain product lines with both quantity and unit price as positive integers greater than **zero**.
+The initial Composer install supplies the Sail runtime needed to build the container. `start.sh` creates `.env` from `.env.example` if missing, creates the SQLite database file, starts the application and Redis, installs dependencies, and runs migrations. **Each run resets the database** (`migrate:fresh --seed`).
 
-### Invoice Sending Workflow:
+The application is available at `http://localhost` (override `APP_PORT` in `.env` if needed). SQLite stores invoices.
 
-* **Send an email notification** to the customer using the `NotificationFacade`. 
-  * The email's subject and message may be hardcoded or customized as needed. 
-  * Change the **Invoice Status** to `sending` when the invoice is sent.
+```bash
+docker compose exec app bash               # Open a container shell
+docker compose exec app php artisan test   # Run the test suite
+docker compose down                       # Stop the services
+```
 
-### Delivery:
+## API
 
-* Upon successful delivery by the Dummy notification provider:
-  * The **Notification Module** triggers a `WebhookDeliveredEvent` via webhook.
-  * The **Invoice Module** listens for and captures this event.
-  * The **Invoice Status** is updated from `sending` to `sent-to-client`.
-  * **Note**: This transition requires that the invoice is currently in the `sending` status.
+All API routes use the `/api` prefix and require no authentication. Send `Accept: application/json`; JSON request bodies also require `Content-Type: application/json`.
 
-## Technical Requirements:
+### Create an invoice — `POST /api/invoices`
 
-* **Preferred Approach**: Domain-Driven Design (DDD) is preferred for this project. If you have experience with DDD, please feel free to apply this methodology. However, if you are more comfortable with another approach, you may choose an alternative structure.
-* **Alternative Submission**: If you have a different, comparable project or task that showcases your skills, you may submit that instead of creating this task.
-* **Tests**: Core invoice logic must be covered by tests. Choose the testing strategy that best demonstrates the correctness of your solution.
-* **Documentation**: Candidates are encouraged to document their decisions and reasoning in comments or a README file, explaining why specific implementations or structures were chosen.
+Creates a `draft` invoice with an automatically generated UUID.
 
-## Evaluation Criteria
+```bash
+curl -X POST http://localhost/api/invoices \
+  -H 'Accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "customer_name": "Jane Doe",
+    "customer_email": "jane@example.com",
+    "product_lines": [
+      {"product_name": "Keyboard", "quantity": 2, "unit_price": 150}
+    ]
+  }'
+```
 
-We look at the overall shape of the solution, not a checklist. In particular:
-* Architecture, separation of concerns, and clarity of module boundaries.
-* Testing strategy — what you chose to test and why.
-* How the send/deliver workflow behaves when things do not go as expected.
+Returns **201 Created**:
 
-## Note on the Notification Module:
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "draft",
+  "customer_name": "Jane Doe",
+  "customer_email": "jane@example.com",
+  "product_lines": [
+    {
+      "product_name": "Keyboard",
+      "quantity": 2,
+      "unit_price": 150,
+      "total_unit_price": 300
+    }
+  ],
+  "total_price": 300
+}
+```
 
-The Notification module included in this repository is a minimal, mock integration example. It is intentionally simple and should not be treated as a reference for DDD structure or for the expected invoice design.
+`customer_name` and a valid `customer_email` are required (maximum 255 characters each). `product_lines` is optional and may be an empty array. Each line requires `product_name` (maximum 255 characters), plus `quantity` and `unit_price` as JSON integers from 1 to 2,147,483,647. Totals are calculated automatically; an empty invoice totals 0. Invalid input or a total exceeding PHP's integer range returns **422**.
 
-## Setup Instructions:
+Use the returned `id` for the remaining examples:
 
-* Start the project by running `./start.sh`.
-* To access the container environment, use: `docker compose exec app bash`.
+```bash
+INVOICE_ID=550e8400-e29b-41d4-a716-446655440000 # Replace with the actual UUID
+```
+
+### View an invoice — `GET /api/invoices/{id}`
+
+```bash
+curl "http://localhost/api/invoices/$INVOICE_ID" \
+  -H 'Accept: application/json'
+```
+
+Returns **200 OK** with the same invoice structure shown above and its current status: `draft`, `sending`, or `sent-to-client`. An unknown or malformed UUID returns **404**.
+
+### Send an invoice — `POST /api/invoices/{id}/send`
+
+```bash
+curl -X POST "http://localhost/api/invoices/$INVOICE_ID/send" \
+  -H 'Accept: application/json'
+```
+
+No request body is needed. A draft invoice with at least one product line moves to `sending` and invokes the notification provider. Returns **200 OK** with the full invoice structure and `"status": "sending"`.
+
+| Status | Meaning |
+| --- | --- |
+| 404 | Unknown or malformed invoice UUID. |
+| 409 | Invoice is already `sending` or `sent-to-client`. |
+| 422 | Invoice has no product lines. |
+| 503 | Notification failed; the application attempts to restore `draft` status. |
+
+The configured Dummy notification driver sends no actual email and does not trigger delivery automatically. Call the webhook below to simulate delivery.
+
+### Delivery webhook — `GET /api/notification/hook/{action}/{reference}`
+
+`action` must be `delivered`; `reference` is the invoice UUID.
+
+```bash
+curl -i "http://localhost/api/notification/hook/delivered/$INVOICE_ID" \
+  -H 'Accept: application/json'
+```
+
+Returns **204 No Content** and changes a `sending` invoice to `sent-to-client`. Duplicate deliveries, unknown invoice UUIDs, and deliveries for draft invoices are ignored and also return **204**. An unsupported action or malformed UUID returns **404**.
